@@ -1,0 +1,253 @@
+##Trajectory analysis using Monocle3
+##Setup: Use malignant osteosarcoma cells and preserve the existing scVI-integrated UMAP
+##Tutorials:
+#https://cole-trapnell-lab.github.io/monocle3/docs/trajectories/
+#https://cole-trapnell-lab.github.io/monocle3/docs/differential/
+#Seurat -> Monocle3 conversion:
+#https://github.com/satijalab/seurat-wrappers/blob/master/docs/monocle3.Rmd
+
+library(monocle3)
+library(SeuratWrappers)
+library(igraph)
+library(dplyr)
+library(ggplot2)
+
+
+#A: Convert malignant Seurat object to Monocle3 object
+malignant <- readRDS("malignant.rds")
+
+#Transfer RNA expression, metadata, and the malignant-specific scVI UMAP into Monocle3
+#SeuratWrappers transfers dimensional reductions into reducedDims of the cell_data_set
+cds <- as.cell_data_set(
+  malignant,
+  assay = "RNA",
+  reductions = "umap.scvi.malignant"
+)
+
+#The transferred reduction is named UMAP.SCVI.MALIGNANT in Monocle3
+#Copy it to "UMAP" because Monocle3 trajectory functions expect the UMAP reduction
+umap_mat <- reducedDims(cds)[["UMAP.SCVI.MALIGNANT"]]
+umap_mat <- umap_mat[colnames(cds), , drop = FALSE]
+reducedDims(cds)[["UMAP"]] <- umap_mat
+
+#Check cell order matches between expression data and UMAP
+identical(
+  colnames(cds),
+  rownames(reducedDims(cds)[["UMAP"]])
+)
+
+
+#B: Monocle3 clustering and principal graph
+#Monocle3 requires clusters/partitions before trajectory learning
+#Default cluster_cells parameters were used rather than selecting an arbitrary Monocle resolution
+cds <- cluster_cells(
+  cds,
+  reduction_method = "UMAP"
+)
+
+#Fit the principal graph within the Monocle partitions
+#Official Monocle3 tutorial uses learn_graph(cds) with default parameters
+cds <- learn_graph(cds)
+
+#Check that the principal graph exists
+length(principal_graph(cds))
+names(principal_graph(cds))
+
+#Save graph-learned object
+save_monocle_objects(
+  cds = cds,
+  directory_path = "malignant_monocle3_graph_learned"
+)
+
+
+#C: Root selection
+#scVI malignant cluster 1 was selected as the biologically early-like population
+#because it represents the proliferative/cycling malignant state
+
+cluster1_cells <- colnames(cds)[
+  colData(cds)$malignant.scvi.clusters == "1"
+]
+
+#Map each cell to its closest Monocle principal-graph node
+#This follows the logic used in the official Monocle3 tutorial for programmatic root selection
+closest_vertex <- principal_graph_aux(cds)[["UMAP"]]$
+  pr_graph_cell_proj_closest_vertex
+
+closest_vertex <- as.matrix(
+  closest_vertex[colnames(cds), , drop = FALSE]
+)
+
+closest_node_name <- igraph::V(
+  principal_graph(cds)[["UMAP"]]
+)$name[
+  as.numeric(closest_vertex[, 1])
+]
+
+names(closest_node_name) <- colnames(cds)
+
+#Count principal graph nodes occupied by cluster 1 cells
+cluster1_node_counts <- sort(
+  table(closest_node_name[cluster1_cells]),
+  decreasing = TRUE
+)
+
+head(cluster1_node_counts, 20)
+
+
+#Identify terminal graph nodes ("leaves")
+#Graph degree = 1 defines a terminal node
+graph <- principal_graph(cds)[["UMAP"]]
+
+node_degree <- igraph::degree(graph)
+
+leaf_nodes <- names(
+  node_degree[node_degree == 1]
+)
+
+#Restrict cluster 1-associated nodes to terminal leaves
+cluster1_leaf_counts <- cluster1_node_counts[
+  names(cluster1_node_counts) %in% leaf_nodes
+]
+
+cluster1_leaf_counts
+
+#Y_142 had the greatest number of cluster 1 cells among terminal graph nodes
+#Therefore Y_142 was selected as the root
+root_node <- "Y_142"
+
+
+#D: Order cells in pseudotime
+#Monocle3 requires a biologically defined root to orient pseudotime
+cds <- order_cells(
+  cds,
+  root_pr_nodes = root_node
+)
+
+#Check pseudotime
+summary(pseudotime(cds))
+
+#Cells in partitions without a reachable root receive infinite pseudotime
+#0 confirms all cells were successfully ordered
+sum(is.infinite(pseudotime(cds)))
+
+
+#E: Plot trajectory and pseudotime
+
+#Trajectory colored by malignant scVI state
+p_scvi_trajectory <- plot_cells(
+  cds,
+  color_cells_by = "malignant.scvi.clusters",
+  label_cell_groups = FALSE,
+  label_groups_by_cluster = FALSE,
+  label_leaves = TRUE,
+  label_branch_points = TRUE,
+  graph_label_size = 3.5
+)
+
+#Trajectory colored by tissue type
+p_tissue_trajectory <- plot_cells(
+  cds,
+  color_cells_by = "Tissue_Type",
+  label_cell_groups = FALSE,
+  label_groups_by_cluster = FALSE,
+  label_leaves = TRUE,
+  label_branch_points = TRUE,
+  graph_label_size = 3.5
+)
+
+#Trajectory colored by pseudotime
+p_pseudotime <- plot_cells(
+  cds,
+  color_cells_by = "pseudotime",
+  label_cell_groups = FALSE,
+  label_leaves = TRUE,
+  label_branch_points = TRUE,
+  graph_label_size = 3.5
+)
+
+#Save plots
+ggsave(
+  "monocle_trajectory_scvi_states.png",
+  p_scvi_trajectory,
+  width = 10,
+  height = 8,
+  dpi = 300
+)
+
+ggsave(
+  "monocle_trajectory_tissue_type.png",
+  p_tissue_trajectory,
+  width = 10,
+  height = 8,
+  dpi = 300
+)
+
+ggsave(
+  "monocle_pseudotime.png",
+  p_pseudotime,
+  width = 10,
+  height = 8,
+  dpi = 300
+)
+
+
+#F: Identify genes associated with the trajectory
+#neighbor_graph = "principal_graph" tests gene-expression autocorrelation
+#along the learned Monocle trajectory
+#cores = 2 is only a computational setting
+
+trajectory_genes <- graph_test(
+  cds,
+  neighbor_graph = "principal_graph",
+  cores = 2
+)
+
+trajectory_genes_df <- as.data.frame(trajectory_genes)
+
+#Significant trajectory-associated genes
+#q_value < 0.05 used as FDR threshold
+trajectory_genes_sig <- trajectory_genes_df %>%
+  filter(q_value < 0.05) %>%
+  arrange(desc(morans_I))
+
+head(trajectory_genes_sig, 20)
+
+#Save results
+write.csv(
+  trajectory_genes_df,
+  "monocle3_graph_test_all_genes.csv",
+  row.names = TRUE
+)
+
+write.csv(
+  trajectory_genes_sig,
+  "monocle3_graph_test_q05.csv",
+  row.names = TRUE
+)
+
+
+#G: Plot representative trajectory-associated genes
+#gene_short_name is required by plot_genes_in_pseudotime()
+rowData(cds)$gene_short_name <- rownames(cds)
+
+#Representative genes selected from significant graph_test results
+#and original malignant-state marker genes
+genes_to_plot <- c(
+  "SPP1",   # cluster 0
+  "TOP2A",  # proliferative cluster 1
+  "COL2A1", # cluster 2
+  "ISG15"   # interferon-associated cluster 3
+)
+
+p_gene_pt <- plot_genes_in_pseudotime(
+  cds[genes_to_plot, ],
+  color_cells_by = "pseudotime"
+)
+
+ggsave(
+  "selected_genes_along_pseudotime.png",
+  p_gene_pt,
+  width = 10,
+  height = 8,
+  dpi = 300
+)
