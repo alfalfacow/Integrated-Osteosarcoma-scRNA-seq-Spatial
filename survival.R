@@ -114,4 +114,6 @@ for(i in 1:88){
   }
 }
 
-
+#creating the kaplan meier survival curve
+fit <- survfit(Surv(overall_survival, deceased) ~ strata, data=survival_data) #high vs medium vs low tert expression
+ggsurvplot(fit, data=survival_data,  pval=T, risk.table=T, conf.int=F)
