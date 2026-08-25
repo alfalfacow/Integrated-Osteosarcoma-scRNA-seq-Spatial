@@ -233,10 +233,13 @@ rowData(cds)$gene_short_name <- rownames(cds)
 #Representative genes selected from significant graph_test results
 #and original malignant-state marker genes
 genes_to_plot <- c(
-  "SPP1",   # cluster 0
-  "TOP2A",  # proliferative cluster 1
-  "COL2A1", # cluster 2
-  "ISG15"   # interferon-associated cluster 3
+  "TOP2A",
+  "UBE2C",
+  "CCNB1",
+  "SPP1",
+  "COL2A1",
+  "HAPLN1",
+  "ISG15"
 )
 
 p_gene_pt <- plot_genes_in_pseudotime(
