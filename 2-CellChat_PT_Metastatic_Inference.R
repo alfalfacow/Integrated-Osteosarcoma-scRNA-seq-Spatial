@@ -6,6 +6,9 @@
 #multiple comparisons: https://htmlpreview.github.io/?https://github.com/sqjin/CellChat/blob/master/tutorial/Comparison_analysis_of_multiple_datasets.html
 #merging is ok: https://github.com/jinworks/CellChat/issues/62
 
+library(Seurat)
+library(CellChat)
+
 #A: Data Entry and preparation
 metastatic <- subset(Integrated, subset = Tissue_Type == "lung_metastasis")
 primary <- subset(Integrated, subset = Tissue_Type == "primary")
