@@ -1,4 +1,13 @@
 ## Step 0: Preparing for SeuratIntegrate
+
+## run the following ONCE to set your conda environment with scvi installed
+file.edit(".Renviron")
+## Once in file, enter in then save: 
+RETICULATE_PYTHON=/Users/alfred/micromamba/envs/scvi_env/bin/python
+RETICULATE_AUTOCONFIGURE=FALSE
+OMP_NUM_THREADS=1
+MKL_NUM_THREADS=1
+
 # Python / scVI initialization (should restart R session)
 Sys.getenv("RETICULATE_PYTHON") #to test
 library(reticulate)
