@@ -1,6 +1,5 @@
 ##Cell-cell communication comparison using CellChat
-##Primary and metastatic CellChat objects were compared following the
-##official CellChat multiple-dataset comparison tutorial:
+##Primary and metastatic CellChat objects were compared following the official CellChat multiple-dataset comparison tutorial:
 #https://htmlpreview.github.io/?https://github.com/sqjin/CellChat/blob/master/tutorial/Comparison_analysis_of_multiple_datasets.html
 
 library(CellChat)
