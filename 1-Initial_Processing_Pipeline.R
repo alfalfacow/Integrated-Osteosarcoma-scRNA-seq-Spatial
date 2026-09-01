@@ -1,4 +1,4 @@
-## Step 0: Preparing for SeuratIntegrate
+## Step 0: Preparing for SeuratIntegrate (not needed if running scVI via python, only go through step 0 if using the R wrapper SeuratIntegrate)
 
 ## run the following ONCE to set your conda environment with scvi installed
 file.edit(".Renviron")
