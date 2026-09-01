@@ -13,6 +13,4 @@ object.list <- list(
   Metastatic = metastatic_CellChat
 )
 
-##Subsequent comparison of interaction number, interaction strength,
-##signaling roles, pathway information flow, and pathway-specific
-##networks followed the CellChat multiple-dataset comparison tutorial.
+##Subsequent comparison of interaction number, interaction strength, signaling roles, pathway information flow, and pathway-specific networks followed the CellChat multiple dataset comparison tutorial.
