@@ -1,6 +1,5 @@
 ##Cell-Cell interactions using CellChat
 ##Setup: One CellChat object for each condition (primary vs metastatic), then compare
-##
 ##Tutorials:
 #https://htmlpreview.github.io/?https://github.com/sqjin/CellChat/blob/master/tutorial/Interface_with_other_single-cell_analysis_toolkits.html
 #https://htmlpreview.github.io/?https://github.com/sqjin/CellChat/blob/master/tutorial/CellChat-vignette.html
@@ -9,10 +8,6 @@
 #merging is ok:
 #https://github.com/jinworks/CellChat/issues/62
 
-
-#===========================================================
-#LOAD PACKAGES
-#===========================================================
 
 library(CellChat)
 library(Seurat)
@@ -23,26 +18,14 @@ library(ComplexHeatmap)
 library(grid)
 
 
-#===========================================================
-#A: DATA ENTRY AND PREPARATION
-#===========================================================
+#A: Data entry and preparation
 
 #Split integrated Seurat object by tissue type
-metastatic <- subset(
-  Integrated,
-  subset = Tissue_Type == "lung_metastasis"
-)
-
-primary <- subset(
-  Integrated,
-  subset = Tissue_Type == "primary"
-)
+metastatic <- subset(Integrated, subset = Tissue_Type == "lung_metastasis")
+primary <- subset(Integrated, subset = Tissue_Type == "primary")
 
 
-#-----------------------------------------------------------
 #Create metastatic CellChat object
-#-----------------------------------------------------------
-
 data.input <- GetAssayData(
   metastatic,
   assay = "RNA",
@@ -65,10 +48,7 @@ metastatic_CellChat <- createCellChat(
 )
 
 
-#-----------------------------------------------------------
 #Create primary CellChat object
-#-----------------------------------------------------------
-
 data.input <- GetAssayData(
   primary,
   assay = "RNA",
@@ -91,24 +71,16 @@ primary_CellChat <- createCellChat(
 )
 
 
-#===========================================================
-#B: LOAD CELlCHAT DATABASE
-#===========================================================
+#B: Load CellChat database
 
+#Load human CellChat database
 CellChatDB <- CellChatDB.human
 
-#Look at database categories
+#Look at database categories/interactions
 showDatabaseCategory(CellChatDB)
-
-#Look at interaction information
 dplyr::glimpse(CellChatDB$interaction)
 
-
-#Use:
-#Secreted Signaling
-#ECM-Receptor
-#Cell-Cell Contact
-
+#Subset database to protein-mediated signaling categories
 CellChatDB.use <- subsetDB(
   CellChatDB,
   search = c(
@@ -119,25 +91,16 @@ CellChatDB.use <- subsetDB(
   key = "annotation"
 )
 
-
-#Assign database to CellChat objects
+#Assign filtered database to CellChat objects
 metastatic_CellChat@DB <- CellChatDB.use
 primary_CellChat@DB <- CellChatDB.use
 
-
-#Subset expression matrices to signaling genes in CellChat database
-metastatic_CellChat <- subsetData(
-  metastatic_CellChat
-)
-
-primary_CellChat <- subsetData(
-  primary_CellChat
-)
+#Subset expression matrices to signaling genes in database
+metastatic_CellChat <- subsetData(metastatic_CellChat)
+primary_CellChat <- subsetData(primary_CellChat)
 
 
-#===========================================================
-#C: IDENTIFY OVEREXPRESSED SIGNALING GENES / INTERACTIONS
-#===========================================================
+#C: Identify overexpressed signaling genes/interactions
 
 metastatic_CellChat <- identifyOverExpressedGenes(
   metastatic_CellChat
@@ -146,7 +109,6 @@ metastatic_CellChat <- identifyOverExpressedGenes(
 metastatic_CellChat <- identifyOverExpressedInteractions(
   metastatic_CellChat
 )
-
 
 primary_CellChat <- identifyOverExpressedGenes(
   primary_CellChat
@@ -157,12 +119,9 @@ primary_CellChat <- identifyOverExpressedInteractions(
 )
 
 
-#===========================================================
-#D: COMPUTE COMMUNICATION PROBABILITIES
-#===========================================================
+#D: Compute communication probabilities
 
-#Using triMean for main analysis
-
+#Main analysis uses triMean
 metastatic_CellChat <- computeCommunProb(
   metastatic_CellChat,
   type = "triMean"
@@ -173,7 +132,6 @@ primary_CellChat <- computeCommunProb(
   type = "triMean"
 )
 
-
 #Compute pathway-level communication probabilities
 metastatic_CellChat <- computeCommunProbPathway(
   metastatic_CellChat
@@ -183,8 +141,7 @@ primary_CellChat <- computeCommunProbPathway(
   primary_CellChat
 )
 
-
-#Filter communication involving cell populations with <10 cells
+#Filter communication involving cell populations with fewer than 10 cells
 metastatic_CellChat <- filterCommunication(
   metastatic_CellChat,
   min.cells = 10
@@ -196,12 +153,9 @@ primary_CellChat <- filterCommunication(
 )
 
 
-#===========================================================
-#E: EXTRACT COMMUNICATION TABLES
-#===========================================================
+#E: Extract communication tables
 
 #All inferred ligand-receptor interactions
-
 met_paths <- subsetCommunication(
   metastatic_CellChat
 )
@@ -210,9 +164,7 @@ prim_paths <- subsetCommunication(
   primary_CellChat
 )
 
-
-#Optional: pathway-level communication tables
-
+#Pathway-level communication tables
 met_paths_pathway <- subsetCommunication(
   metastatic_CellChat,
   slot.name = "netP"
@@ -224,9 +176,7 @@ prim_paths_pathway <- subsetCommunication(
 )
 
 
-#===========================================================
-#F: AGGREGATE NETWORK
-#===========================================================
+#F: Aggregate networks
 
 metastatic_CellChat <- aggregateNet(
   metastatic_CellChat
@@ -237,9 +187,7 @@ primary_CellChat <- aggregateNet(
 )
 
 
-#===========================================================
-#G: INITIAL NETWORK PLOTS FOR EACH CONDITION
-#===========================================================
+#G: Initial network plots for each condition
 
 #Metastatic
 groupSize <- as.numeric(
@@ -253,7 +201,6 @@ netVisual_circle(
   label.edge = FALSE,
   title.name = "Interaction weights/strength - Metastatic"
 )
-
 
 #Primary
 groupSize <- as.numeric(
@@ -269,10 +216,8 @@ netVisual_circle(
 )
 
 
-#===========================================================
-#H: COMPUTE NETWORK CENTRALITY
+#H: Compute network centrality
 #Needed for signaling-role analyses
-#===========================================================
 
 primary_CellChat <- netAnalysis_computeCentrality(
   primary_CellChat,
@@ -285,9 +230,7 @@ metastatic_CellChat <- netAnalysis_computeCentrality(
 )
 
 
-#===========================================================
-#I: MERGE PRIMARY AND METASTATIC CELlCHAT OBJECTS
-#===========================================================
+#I: Merge primary and metastatic CellChat objects
 
 object.list <- list(
   Primary = primary_CellChat,
@@ -300,9 +243,7 @@ cellchat <- mergeCellChat(
 )
 
 
-#===========================================================
-#J: COMPARE TOTAL NUMBER AND STRENGTH OF INTERACTIONS
-#===========================================================
+#J: Compare total number and strength of interactions
 
 gg1 <- compareInteractions(
   cellchat,
@@ -320,23 +261,18 @@ gg2 <- compareInteractions(
 gg1 + gg2
 
 
-#===========================================================
-#K: DIFFERENTIAL INTERACTION NETWORKS
-#Primary -> Metastatic comparison
-#===========================================================
+#K: Differential interaction networks
 
 par(
   mfrow = c(1, 2),
   xpd = TRUE
 )
 
-
 #Difference in number of interactions
 netVisual_diffInteraction(
   cellchat,
   weight.scale = TRUE
 )
-
 
 #Difference in interaction strength
 netVisual_diffInteraction(
@@ -350,15 +286,12 @@ par(
 )
 
 
-#===========================================================
-#L: DIFFERENTIAL INTERACTION HEATMAPS
-#===========================================================
+#L: Differential interaction heatmaps
 
 #Number of interactions
 ht_count <- netVisual_heatmap(
   cellchat
 )
-
 
 #Interaction strength
 ht_weight <- netVisual_heatmap(
@@ -366,18 +299,12 @@ ht_weight <- netVisual_heatmap(
   measure = "weight"
 )
 
-
 ht_count + ht_weight
 
 
-#===========================================================
-#M: PRIMARY VS METASTATIC CIRCLE PLOTS WITH SAME SCALE
-#===========================================================
+#M: Primary vs metastatic circle plots using same scale
 
-#-----------------------------------------------------------
 #Number of interactions
-#-----------------------------------------------------------
-
 weight.max <- getMaxWeight(
   object.list,
   attribute = c(
@@ -411,10 +338,7 @@ par(
 )
 
 
-#-----------------------------------------------------------
 #Interaction strength
-#-----------------------------------------------------------
-
 weight.max <- getMaxWeight(
   object.list,
   attribute = c(
@@ -448,10 +372,8 @@ par(
 )
 
 
-#===========================================================
-#N: OVERALL OUTGOING VS INCOMING SIGNALING ROLES
+#N: Overall outgoing vs incoming signaling roles
 #This generated the Primary vs Metastatic scatter plot
-#===========================================================
 
 num.link <- sapply(
   object.list,
@@ -467,7 +389,6 @@ weight.MinMax <- c(
   max(num.link)
 )
 
-
 gg_role <- list()
 
 for (i in 1:length(object.list)) {
@@ -479,16 +400,12 @@ for (i in 1:length(object.list)) {
   )
 }
 
-
 patchwork::wrap_plots(
   plots = gg_role
 )
 
 
-#===========================================================
-#O: CELL-TYPE-SPECIFIC CHANGES IN SIGNALING
-#Examples used during analysis
-#===========================================================
+#O: Cell-type-specific changes in signaling
 
 #Myeloid
 gg_myeloid <- netAnalysis_signalingChanges_scatter(
@@ -544,9 +461,7 @@ gg_sub5 <- netAnalysis_signalingChanges_scatter(
 print(gg_sub5)
 
 
-#===========================================================
-#P: COMPARE SIGNALING PATHWAY INFORMATION FLOW
-#===========================================================
+#P: Compare signaling pathway information flow
 
 gg_rank <- rankNet(
   cellchat,
@@ -558,10 +473,8 @@ gg_rank <- rankNet(
 print(gg_rank)
 
 
-#===========================================================
-#Q: SIGNALING-ROLE HEATMAPS
+#Q: Signaling-role heatmaps
 #Outgoing, incoming, and overall signaling
-#===========================================================
 
 pathway.union <- union(
   object.list[[1]]@netP$pathways,
@@ -569,10 +482,7 @@ pathway.union <- union(
 )
 
 
-#-----------------------------------------------------------
 #Outgoing signaling
-#-----------------------------------------------------------
-
 ht_out_primary <- netAnalysis_signalingRole_heatmap(
   object.list[[1]],
   pattern = "outgoing",
@@ -596,10 +506,7 @@ ComplexHeatmap::draw(
 )
 
 
-#-----------------------------------------------------------
 #Incoming signaling
-#-----------------------------------------------------------
-
 ht_in_primary <- netAnalysis_signalingRole_heatmap(
   object.list[[1]],
   pattern = "incoming",
@@ -623,10 +530,7 @@ ComplexHeatmap::draw(
 )
 
 
-#-----------------------------------------------------------
 #Overall signaling
-#-----------------------------------------------------------
-
 ht_all_primary <- netAnalysis_signalingRole_heatmap(
   object.list[[1]],
   pattern = "all",
@@ -650,9 +554,7 @@ ComplexHeatmap::draw(
 )
 
 
-#===========================================================
-#R: FUNCTIONAL SIGNALING SIMILARITY
-#===========================================================
+#R: Functional signaling similarity
 
 cellchat <- computeNetSimilarityPairwise(
   cellchat,
@@ -669,13 +571,11 @@ cellchat <- netClustering(
   type = "functional"
 )
 
-
 netVisual_embeddingPairwise(
   cellchat,
   type = "functional",
   label.size = 3.5
 )
-
 
 rankSimilarity(
   cellchat,
@@ -683,21 +583,13 @@ rankSimilarity(
 )
 
 
-#===========================================================
-#S: OPTIONAL EXAMPLE OF PATHWAY-SPECIFIC FOLLOW-UP
-#VEGF
-#
-#This is where the unbiased comparison transitions into
-#follow-up of an identified biological pathway.
-#===========================================================
+#S: Pathway-specific follow-up
+#Example: VEGF
 
 pathways.show <- c("VEGF")
 
 
-#-----------------------------------------------------------
 #VEGF circle plots with matched scale
-#-----------------------------------------------------------
-
 weight.max <- getMaxWeight(
   object.list,
   slot.name = "netP",
@@ -729,10 +621,7 @@ par(
 )
 
 
-#-----------------------------------------------------------
 #VEGF heatmaps
-#-----------------------------------------------------------
-
 ht_vegf <- list()
 
 for (i in 1:length(object.list)) {
@@ -748,7 +637,6 @@ for (i in 1:length(object.list)) {
   )
 }
 
-
 ComplexHeatmap::draw(
   ht_vegf[[1]] + ht_vegf[[2]],
   ht_gap = grid::unit(
@@ -758,9 +646,7 @@ ComplexHeatmap::draw(
 )
 
 
-#===========================================================
-#T: SAVE CELlCHAT OBJECTS
-#===========================================================
+#T: Save CellChat objects
 
 saveRDS(
   metastatic_CellChat,
